@@ -5,7 +5,6 @@ import com.az.assignment.entity.Item;
 import com.az.assignment.entity.ToDo;
 import com.az.assignment.exception.CustomRuntimeException;
 import com.az.assignment.repository.ToDoRepository;
-import com.az.assignment.repository.UserRepository;
 import com.az.assignment.service.ToDoService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,13 +23,11 @@ import java.util.stream.Collectors;
 public class ToDoServiceImpl implements ToDoService {
 
     private final ToDoRepository repository;
-    private final UserRepository userRepository;
 
     @Transactional
     @Override
     public MultipleToDoResponse createMultipleToDos(MultipleToDoRequest request, Long userId) {
         MultipleToDoResponse response = null;
-        validateUserId(userId);
         if(!CollectionUtils.isEmpty(request.getToDoRequests())) {
             List<ToDo> toDos = request.getToDoRequests().stream().map(this::buildToDoObject)
                     .map(toDo ->  linkUser(toDo, userId))
@@ -44,8 +41,7 @@ public class ToDoServiceImpl implements ToDoService {
     @Transactional(readOnly = true)
     @Override
     public MultipleToDoResponse fetchToDos(long userId) {
-        validateUserId(userId);
-        log.debug("Fetch all ToDos");
+        log.info("fetchToDos ::");
         List<ToDo> toDos = repository.findAll();
         MultipleToDoResponse response = new MultipleToDoResponse(toDos);
         log.debug("fetchToDos response {}", response);
@@ -55,9 +51,7 @@ public class ToDoServiceImpl implements ToDoService {
     @Transactional
     @Override
     public ToDo addNewItem(Long toDoId, AddItemRequest request, Long userId) {
-        validateUserId(userId);
-        ToDo toDo = validateAndFetchRequestedToDo(toDoId);
-        validateToDoOwner(toDo, userId);
+        ToDo toDo = fetchValidatedToDo(toDoId, userId);
         Item newItem = new Item();
         newItem.setActivity(request.getActivity());
         newItem.setStatus(ActivityStatus.PENDING);
@@ -68,9 +62,7 @@ public class ToDoServiceImpl implements ToDoService {
     @Transactional
     @Override
     public ToDo updateItemActivity(Long toDoId, UpdateItemRequest request, Long userId) {
-        validateUserId(userId);
-        ToDo toDo = validateAndFetchRequestedToDo(toDoId);
-        validateToDoOwner(toDo, userId);
+        ToDo toDo = fetchValidatedToDo(toDoId, userId);
         if(!CollectionUtils.isEmpty(toDo.getTodoItems())) {
             Item requestedItem = validateAndFetchToDoItem(request.getItemId(), toDo);
             requestedItem.setActivity(request.getActivity());
@@ -88,7 +80,6 @@ public class ToDoServiceImpl implements ToDoService {
 
     @Override
     public boolean deleteItem(long toDoId, long itemId, long userId) {
-        validateUserId(userId);
         ToDo toDo = validateAndFetchRequestedToDo(toDoId);
         if(!CollectionUtils.isEmpty(toDo.getTodoItems())) {
             Item requestedItem = validateAndFetchToDoItem(itemId, toDo);
@@ -101,14 +92,19 @@ public class ToDoServiceImpl implements ToDoService {
 
     @Override
     public ToDo markDoneItemActivity(long toDoId, long itemId, long userId) {
-        validateUserId(userId);
-        ToDo toDo = validateAndFetchRequestedToDo(toDoId);
+        ToDo toDo = fetchValidatedToDo(toDoId, userId);
         if(!CollectionUtils.isEmpty(toDo.getTodoItems())) {
             Item requestedItem = validateAndFetchToDoItem(itemId, toDo);
             requestedItem.setStatus(ActivityStatus.DONE);
             return repository.save(toDo);
         }
         throw new CustomRuntimeException("ToDo item not exist", "Provided itemId not exist", HttpStatus.NOT_FOUND);
+    }
+
+    private ToDo fetchValidatedToDo(long toDoId, long userId) {
+        ToDo toDo = validateAndFetchRequestedToDo(toDoId);
+        validateToDoOwner(toDo, userId);
+        return toDo;
     }
 
     private void validateToDoOwner(ToDo toDo, Long userId) {
@@ -138,13 +134,6 @@ public class ToDoServiceImpl implements ToDoService {
             toDo.setTodoItems( new HashSet<>());
         item.setToDo(toDo);
         toDo.getTodoItems().add(item);
-    }
-
-// TODO: later we should use interceptor to validate userId/user token
-    private void validateUserId(Long userId) {
-        if(!userRepository.existsById(userId))
-            throw new CustomRuntimeException("User doesn't exist", "Provided user authentication failed",
-                    HttpStatus.UNAUTHORIZED);
     }
 
     private ToDo linkUser(ToDo toDo, Long userId) {
