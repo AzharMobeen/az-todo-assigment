@@ -46,6 +46,7 @@ docker run -p 8080:8080 az-todo-assignment
 * Users can add/update/delete their own ToDo Items.
 * All authorized users can see all ToDO lists.
 * You can easily test whole application with `swagger-ui`.
+* It's also deployed on [heroku](https://az-todo-assignment.herokuapp.com/swagger-ui/index.html)
 
 #### Useful links:
 * [Swagger url](http://localhost:8080/swagger-ui/index.html)
