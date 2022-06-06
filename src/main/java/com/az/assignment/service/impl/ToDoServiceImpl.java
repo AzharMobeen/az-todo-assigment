@@ -27,6 +27,7 @@ public class ToDoServiceImpl implements ToDoService {
     @Transactional
     @Override
     public MultipleToDoResponse createMultipleToDos(MultipleToDoRequest request, Long userId) {
+        log.info("createMultipleToDos request {}, userId {}", request, userId);
         MultipleToDoResponse response = null;
         if(!CollectionUtils.isEmpty(request.getToDoRequests())) {
             List<ToDo> toDos = request.getToDoRequests().stream().map(this::buildToDoObject)
@@ -35,51 +36,52 @@ public class ToDoServiceImpl implements ToDoService {
             toDos = repository.saveAll(toDos);
             response = new MultipleToDoResponse(toDos);
         }
+        log.info("createMultipleToDos response {}", response);
         return response;
     }
 
     @Transactional(readOnly = true)
     @Override
     public MultipleToDoResponse fetchToDos(long userId) {
-        log.info("fetchToDos ::");
+        log.info("fetchToDos userId {}::", userId);
         List<ToDo> toDos = repository.findAll();
         MultipleToDoResponse response = new MultipleToDoResponse(toDos);
-        log.debug("fetchToDos response {}", response);
+        log.info("fetchToDos response {}", response);
         return response;
     }
 
     @Transactional
     @Override
     public ToDo addNewItem(Long toDoId, AddItemRequest request, Long userId) {
+        log.info("addNewItem toDoId {}, request {}, userId {}", toDoId, request, userId);
         ToDo toDo = fetchValidatedToDo(toDoId, userId);
         Item newItem = new Item();
         newItem.setActivity(request.getActivity());
         newItem.setStatus(ActivityStatus.PENDING);
         addToDoItem(newItem, toDo);
-        return repository.save(toDo);
+        toDo = repository.save(toDo);
+        log.info("addNewItem response {}", toDo);
+        return toDo;
     }
 
     @Transactional
     @Override
     public ToDo updateItemActivity(Long toDoId, UpdateItemRequest request, Long userId) {
+        log.info("updateItemActivity toDoId {}, request {}, userId {}", toDoId, request, userId);
         ToDo toDo = fetchValidatedToDo(toDoId, userId);
         if(!CollectionUtils.isEmpty(toDo.getTodoItems())) {
             Item requestedItem = validateAndFetchToDoItem(request.getItemId(), toDo);
             requestedItem.setActivity(request.getActivity());
-            return repository.save(toDo);
+            toDo = repository.save(toDo);
+            log.info("updateItemActivity response {}", toDo);
+            return toDo;
         }
         throw new CustomRuntimeException("ToDo item not exist", "Provided itemId not exist", HttpStatus.NOT_FOUND);
     }
 
-    private Item validateAndFetchToDoItem(long itemId, ToDo toDo) {
-        return toDo.getTodoItems().stream()
-                .filter(item -> item.getItemId().equals(itemId))
-                .findFirst().orElseThrow(() -> new CustomRuntimeException("ToDo item not exist",
-                        "Provided itemId not exist", HttpStatus.NOT_FOUND));
-    }
-
     @Override
     public boolean deleteItem(long toDoId, long itemId, long userId) {
+        log.info("deleteItem toDoId {}, itemId {}, userId {}", toDoId, itemId, userId);
         ToDo toDo = validateAndFetchRequestedToDo(toDoId);
         if(!CollectionUtils.isEmpty(toDo.getTodoItems())) {
             Item requestedItem = validateAndFetchToDoItem(itemId, toDo);
@@ -92,11 +94,14 @@ public class ToDoServiceImpl implements ToDoService {
 
     @Override
     public ToDo markDoneItemActivity(long toDoId, long itemId, long userId) {
+        log.info("markDoneItemActivity toDoId {}, itemId {}, userId {}", toDoId, itemId, userId);
         ToDo toDo = fetchValidatedToDo(toDoId, userId);
         if(!CollectionUtils.isEmpty(toDo.getTodoItems())) {
             Item requestedItem = validateAndFetchToDoItem(itemId, toDo);
             requestedItem.setStatus(ActivityStatus.DONE);
-            return repository.save(toDo);
+            toDo = repository.save(toDo);
+            log.info("markDoneItemActivity response {}", toDo);
+            return toDo;
         }
         throw new CustomRuntimeException("ToDo item not exist", "Provided itemId not exist", HttpStatus.NOT_FOUND);
     }
@@ -145,5 +150,12 @@ public class ToDoServiceImpl implements ToDoService {
         Optional<ToDo> requestedToDo = repository.findByToDoId(toDoId);
         return requestedToDo.orElseThrow(() -> new CustomRuntimeException("ToDo not exist",
                 "Provided ToDoId not exist", HttpStatus.NOT_FOUND));
+    }
+
+    private Item validateAndFetchToDoItem(long itemId, ToDo toDo) {
+        return toDo.getTodoItems().stream()
+                .filter(item -> item.getItemId().equals(itemId))
+                .findFirst().orElseThrow(() -> new CustomRuntimeException("ToDo item not exist",
+                        "Provided itemId not exist", HttpStatus.NOT_FOUND));
     }
 }
