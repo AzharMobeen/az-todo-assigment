@@ -1,3 +1,4 @@
+[![build](https://img.shields.io/appveyor/build/AzharMobeen/az-todo-assigment)](https://ci.appveyor.com/project/AzharMobeen/az-todo-assigment)
 ### Az-TODO-assignment
 
 #### Requirements:
